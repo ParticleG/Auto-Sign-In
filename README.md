@@ -1,2 +1,2 @@
-# Cool-Q-Auto-Sign-In-Plugin
-A SKL Auto-Sign-In plugin based on Cool Q
+# Auto-Sign-In Project
+A cross platform auto-sign-in project
