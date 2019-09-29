@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<!-- 引入Bootstrap4文件 -->
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+	<title>自动签到系统</title>
+	<!-- 引用jQuery文件 -->
+	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+	<script type="text/javascript">
+		function AddXAuthToken()
+		{
+			var xmlhttp = new XMLHttpRequest();
+			var username = document.getElementById('AddAccountUserName').value;
+			var password = document.getElementById('AddPassWord').value;
+			xmlhttp.open('GET', 'http://106.14.117.40/api/getXAuthToken.php?account='+username+'&password='+password, true);
+			xmlhttp.onreadystatechange = function()
+			{
+				if(xmlhttp.readyState == 4 && xmlhttp.status == 200)
+				{
+					var response = JSON.parse(this.response);
+					var x_auth_token = response["message"];
+					AddUserInfo(x_auth_token);
+				}
+			};
+			xmlhttp.send();
+		}
+		function UpdateToken(i)
+		{
+			var xmlhttp = new XMLHttpRequest();
+			var username = localStorage.getItem('ASISAccountAdd'+String(i));
+			var password = localStorage.getItem('ASISPasswordAdd'+String(i));
+			xmlhttp.open('GET', 'http://106.14.117.40/api/getXAuthToken.php?account='+username+'&password='+password, true);
+			xmlhttp.onreadystatechange = function()
+			{
+				if(xmlhttp.readyState == 4 && xmlhttp.status == 200)
+				{
+					var response = JSON.parse(this.response);
+					var x_auth_token = response["message"];
+					localStorage.setItem('ASISX-Auth-TokenAdd'+String(i),x_auth_token);
+					checkState(i);
+					location.reload();
+				}
+			};
+			xmlhttp.send();
+		}
+		function AddUserInfo(x_auth_token)
+		{
+			var stateButton = document.getElementById('setUpStateButton');
+			var xmlhttp = new XMLHttpRequest();
+			var XAuthToken = x_auth_token;
+			xmlhttp.open('GET', 'https://skl.hdu.edu.cn/api/userinfo?type=2', true);
+			xmlhttp.setRequestHeader('Pragma','no-cache');
+			xmlhttp.setRequestHeader('Cache-Control','no-cache');
+			xmlhttp.setRequestHeader('Accept','application/json, text/plain, */*');
+			xmlhttp.setRequestHeader('X-Auth-Token',XAuthToken);
+			xmlhttp.setRequestHeader('Accept-Language','zh-CN,en-US;q=0.9');
+			xmlhttp.setRequestHeader('X-Requested-With','com.yiban.app');
+			xmlhttp.onreadystatechange = function()
+			{
+				if(xmlhttp.readyState == 4 && xmlhttp.status == 200)
+				{
+					var response = this.response;
+					var userinfo = JSON.parse(response);
+					document.getElementById('AddAccountCheckModalBody').innerHTML = '<center><h5>请确认您的信息</h5></center><p>姓名：'+userinfo['userName']+'</p><p>性别：'+userinfo['sex']+'</p><p>学院：'+userinfo['unitName']+'</p><p>专业：'+userinfo['major']+'</p><p>班级：'+userinfo['classNo']+'</p><p>学号：'+userinfo['id']+'</p>';
+					sessionStorage.setItem('ASISUserName', userinfo['userName']);
+					sessionStorage.setItem('ASISX-Auth-Token', x_auth_token);
+					document.getElementById('AddAccountCheckModalFooter').innerHTML ='<button type="button"class="btn btn-secondary" data-dismiss="modal">取消</button><button type="button" class="btn btn-primary" onclick="confirmAdd();">确定</button>';
+					$('#AddAccountCheckModal').modal('show');
+				}
+				else if (xmlhttp.readyState == 4 && xmlhttp.status == 401)
+				{
+					alert('登陆失败！账号或密码错误！');
+				}
+			};
+			xmlhttp.send();
+		}
+		function confirmAdd() {
+			localStorage.setItem('AccountCounts',String(Number(localStorage.getItem('AccountCounts'))+1));
+			localStorage.setItem('ASISPasswordAdd'+localStorage.getItem('AccountCounts'), document.getElementById('AddPassWord').value);
+			localStorage.setItem('ASISAccountAdd'+localStorage.getItem('AccountCounts'), document.getElementById('AddAccountUserName').value);
+			localStorage.setItem('ASISUserNameAdd'+localStorage.getItem('AccountCounts'), sessionStorage.getItem('ASISUserName'));
+			localStorage.setItem('ASISX-Auth-TokenAdd'+localStorage.getItem('AccountCounts'),sessionStorage.getItem('ASISX-Auth-Token'));
+			sessionStorage.removeItem('ASISUserName');
+			sessionStorage.removeItem('ASISX-Auth-Token');
+			location.reload();
+		}
+		function reset(i) {
+			var Name = localStorage.getItem('ASISUserNameAdd'+String(i));;
+			document.getElementById('resetConfirmedModalBody').innerHTML = '<h5><b>警告：</b>你<b><i>确定  </i></b>要删除此用户 '+Name+' 吗？</h5>';
+			document.getElementById('resetConfirmedModalFooter').innerHTML = '<button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button><button type="button" class="btn btn-primary" id="addAccountOkButton" onclick="resetConfirmed('+String(i)+');">确定</button>';
+			$('#resetConfirmedModal').modal('show');
+		}
+		function resetConfirmed(i) {
+			localStorage.setItem('AccountCounts',String(Number(localStorage.getItem('AccountCounts'))-1));
+			localStorage.removeItem('ASISAccountAdd'+String(i));
+			localStorage.removeItem('ASISPasswordAdd'+String(i));
+			localStorage.removeItem('ASISUserNameAdd'+String(i));
+			localStorage.removeItem('ASISX-Auth-TokenAdd'+String(i));
+			localStorage.removeItem('ASISAccountStateColor'+String(i));
+			localStorage.removeItem('ASISAccountState'+String(i));
+			for(j = Number(i);j <= localStorage.getItem('AccountCounts');j++)
+			{
+				localStorage.setItem('ASISAccountAdd'+String(j),localStorage.getItem('ASISAccountAdd'+String(j+1)));
+				localStorage.setItem('ASISPasswordAdd'+String(j),localStorage.getItem('ASISPasswordAdd'+String(j+1)));
+				localStorage.setItem('ASISUserNameAdd'+String(j),localStorage.getItem('ASISUserNameAdd'+String(j+1)));
+				localStorage.setItem('ASISX-Auth-TokenAdd'+String(j),localStorage.getItem('ASISX-Auth-TokenAdd'+String(j+1)));
+				localStorage.setItem('ASISAccountStateColor'+String(j),localStorage.getItem('ASISAccountStateColor'+String(j+1)));
+				localStorage.setItem('ASISAccountState'+String(j),localStorage.getItem('ASISAccountState'+String(j+1)));
+			}
+			localStorage.removeItem('ASISAccountAdd'+String(Number(localStorage.getItem('AccountCounts'))+1));
+			localStorage.removeItem('ASISPasswordAdd'+String(Number(localStorage.getItem('AccountCounts'))+1));
+			localStorage.removeItem('ASISUserNameAdd'+String(Number(localStorage.getItem('AccountCounts'))+1));
+			localStorage.removeItem('ASISX-Auth-TokenAdd'+String(Number(localStorage.getItem('AccountCounts'))+1));
+			localStorage.removeItem('ASISAccountStateColor'+String(Number(localStorage.getItem('AccountCounts'))+1));
+			localStorage.removeItem('ASISAccountState'+String(Number(localStorage.getItem('AccountCounts'))+1));
+			location.reload();
+		}
+		function checkState(i) {
+			var xmlhttp = new XMLHttpRequest();
+			var XAuthToken = localStorage.getItem('ASISX-Auth-TokenAdd'+String(i));
+			xmlhttp.open('GET', 'https://skl.hdu.edu.cn/api/userinfo?type=2', true);
+			xmlhttp.setRequestHeader('Pragma','no-cache');
+			xmlhttp.setRequestHeader('Cache-Control','no-cache');
+			xmlhttp.setRequestHeader('Accept','application/json, text/plain, */*');
+			xmlhttp.setRequestHeader('X-Auth-Token',XAuthToken);
+			xmlhttp.setRequestHeader('Accept-Language','zh-CN,en-US;q=0.9');
+			xmlhttp.setRequestHeader('X-Requested-With','com.yiban.app');
+			xmlhttp.onreadystatechange = function() {
+				if(xmlhttp.readyState == 4 && xmlhttp.status == 200){
+					localStorage.setItem('ASISAccountStateColor'+String(i),'success');
+					localStorage.setItem('ASISAccountState'+String(i),'可用');
+				}else if (xmlhttp.status == 401) {
+					localStorage.setItem('ASISAccountStateColor'+String(i),'danger');
+					localStorage.setItem('ASISAccountState'+String(i),'不可用');
+				}
+			}
+			xmlhttp.send();
+		}
+		function addAccount() {
+			$('#addAccountModal').modal('hide');
+			if (document.getElementById('AddAccountUserName').value == '' || document.getElementById('AddPassWord').value == '')
+			{
+				document.getElementById('AddAccountCheckModalBody').innerHTML = '<center><h5>新建签到用户失败！</h5></center><p>必须输入完整的易班账号和密码！';
+				document.getElementById('AddAccountCheckModalFooter').innerHTML ='<button type="button"class="btn btn-secondary" data-dismiss="modal">取消</button><button type="button" class="btn btn-primary" onclick="$(\'#addAccountModal\').modal(\'show\');" data-dismiss="modal">确定</button>';
+				$('#AddAccountCheckModal').modal('show');
+			}else
+			{
+				AddXAuthToken();
+			}
+		}
+		$(document).ready(function()
+		{
+			if (localStorage.getItem('AccountCounts')!=null&&localStorage.getItem('AccountCounts')!='0')
+			{
+				for (i = 1;i <= localStorage.getItem('AccountCounts'); i++)
+				{
+					var Color = localStorage.getItem('ASISAccountStateColor'+String(i));
+					var State = localStorage.getItem('ASISAccountState'+String(i));
+					checkState(i);
+					document.getElementById('CardBody').innerHTML += '<h5 class="card-title" id="mainCardName">'+localStorage.getItem('ASISUserNameAdd'+String(i))+'</h5><p class="card-text" id="mainCardID">易班账号：'+localStorage.getItem('ASISAccountAdd'+String(i))+'</p><p class="card-text" id="mainCardX-Auth-Token">X-Auth-Token:'+localStorage.getItem('ASISX-Auth-TokenAdd'+String(i))+'<span class="badge badge-'+Color+'">'+State+'</span></p><div class="row"><div class="col"><center><button class="btn btn-primary" onclick="reset('+String(i)+');">删除用户</button></center></div><div class="col"><center><button class="btn btn-primary" onclick="UpdateToken('+String(i)+');">更新Token</button></center></div><div class="col"><center><button class="btn btn-primary" onclick="$(\'#addAccountModal\').modal(\'show\');">添加用户</button></center></div></div><br />';
+				}
+			}
+			else if(localStorage.getItem('AccountCounts')!=null)
+			{
+				localStorage.setItem('AccountCounts','0');
+				document.getElementById('CardBody').innerHTML += '<h5 class="card-title" id="mainCardName">暂无用户</h5><p class="card-text" id="mainCardID"></p><p class="card-text" id="mainCardX-Auth-Token"></p><div class="row"><div class="col"><center><button class="btn btn-secondary" disabled>删除用户</button></center></div><div class="col"><center><button class="btn btn-secondary" disabled>更新Token</button></center></div><div class="col"><center><button class="btn btn-primary" onclick="$(\'#addAccountModal\').modal(\'show\');">添加用户</button></center></div></div>';
+
+			}
+			else
+			{
+				document.getElementById('CardBody').innerHTML += '<h5 class="card-title" id="mainCardName">暂无用户</h5><p class="card-text" id="mainCardID"></p><p class="card-text" id="mainCardX-Auth-Token"></p><div class="row"><div class="col"><center><button class="btn btn-secondary" disabled>删除用户</button></center></div><div class="col"><center><button class="btn btn-secondary" disabled>更新Token</button></center></div><div class="col"><center><button class="btn btn-primary" onclick="$(\'#addAccountModal\').modal(\'show\');">添加用户</button></center></div></div>';
+			}
+		})
+	</script>
+</head>
+<body>
+	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+		<a class="navbar-brand" href="#">
+		<img src="favicon.ico" width="30" height="30" class="d-inline-block align-top" alt="">
+		自动签到系统
+		</a>
+		<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+		<span class="navbar-toggler-icon"></span>
+		</button>
+		<div class="collapse navbar-collapse" id="navbarNav">
+			<ul class="navbar-nav">
+				<li class="nav-item active">
+					<a class="nav-link" id="UserManagement" href="">用户管理<span class="sr-only">(current)</span></a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" id="AutoSignIn" href="http://106.14.117.40/auto-sign-in-system-parallel.html">批量签到</a>
+				</li>
+			</ul>
+		</div>
+	</nav>
+	<br />
+	<div class="container">
+<!--==================================================================================用户信息卡片==================================================================================-->
+		<div class="card">
+			<h5 class="card-header">用户信息</h5>
+			<div class="card-body" id="CardBody">
+				<!--占位区-->
+			</div>
+		</div>
+<!--==================================================================================添加签到用户窗口==================================================================================-->
+		<div class="modal fade" id="addAccountModal" tabindex="-1" role="dialog" aria-labelledby="addAccountModalLabel" aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title" id="addAccountModalLabel">添加签到用户</h5>
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+					</div>
+					<div class="modal-body" id="addAccountModalBody">
+						<form onsubmit="return false;">
+							<div class="form-group">
+								<label for="AddAccountUserName">UserName：</label>
+								<input type="text" class="form-control" id="AddAccountUserName" aria-describedby="AddAccountUserNameHelp" placeholder="在此输入易班账号">
+								<small id="AddAccountUserNameHelp" class="form-text text-muted">UserName就是你的易班账号啦~</small>
+							</div>
+							<div class="form-group">
+								<label for="AddPassWord">PassWord：</label>
+								<input type="password" class="form-control" id="AddPassWord" aria-describedby="AddPassWordHelp" placeholder="在此输入易班登录密码">
+								<small id="AddPassWordHelp" class="form-text text-muted">PassWord就是你的易班登陆密码，不要告诉别人！</small>
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+						<button type="button" class="btn btn-primary" id="addAccountOkButton" onclick="addAccount();">确定</button>
+					</div>
+				</div>
+			</div>
+		</div>
+<!--==================================================================================确认签到用户窗口==================================================================================-->
+		<div class="modal fade" id="AddAccountCheckModal" tabindex="-1" role="dialog" aria-labelledby="AddAccountCheckModalLabel" aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title" id="AddAccountCheckModalLabel">新建签到用户</h5>
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+					</div>
+					<div class="modal-body" id="AddAccountCheckModalBody">
+						<!--占位区-->
+					</div>
+					<div class="modal-footer" id="AddAccountCheckModalFooter">
+						<!--占位区-->
+					</div>
+				</div>
+			</div>
+		</div>
+<!--==================================================================================用户状态检查窗口==================================================================================-->
+		<div class="modal fade" id="checkStateModal" tabindex="-1" role="dialog" aria-labelledby="checkStateModalLabel" aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title" id="checkStateModalLabel">检查账户状态</h5>
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+					</div>
+					<div class="modal-body" id="checkStateModalBody">
+					...
+					</div>
+					<div class="modal-footer" id="checkStateModalFooter">
+						<!--
+						<button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+						<button type="button" class="btn btn-primary"  data-dismiss="modal">确定</button>
+						-->
+					</div>
+				</div>
+			</div>
+		</div>
+<!--==================================================================================删除签到用户窗口==================================================================================-->
+		<div class="modal fade" id="resetConfirmedModal" tabindex="-1" role="dialog" aria-labelledby="resetConfirmedModalLabel" aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title" id="resetConfirmedModalLabel">删除签到用户</h5>
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+					</div>
+					<div class="modal-body" id="resetConfirmedModalBody">
+						<!--占位符-->
+					</div>
+					<div class="modal-footer" id="resetConfirmedModalFooter">
+						<!--占位符-->
+					</div>
+				</div>
+			</div>
+		</div>
+		
+	</div>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</body>
+</html>
