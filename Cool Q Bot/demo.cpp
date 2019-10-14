@@ -1,11 +1,48 @@
 #include "cqsdk/cqsdk.h"
-//#include "pythonsdk/Python.h"
 #include "autoSignInPlugin.h"
 
 #define SHELL
 
 #ifndef SHELL
 	#define NATURAL
+#endif
+
+#ifdef SHELL
+	std::regex regexSelfSignIn("[#＃]s (\\d{4})");
+	std::regex regexOtherSignIn("[#＃]o (\\d{4}) \\[CQ:at,qq=(\\d{5,20})\\]\\s*");
+	std::regex regexMultiThreadSignIn("[#＃]a (\\d{4})");
+
+	std::regex regexHelp("[#＃][h?]");
+	std::regex regexRecall("[#＃]rc (\\d{1,2})");
+	std::regex regexPing("[#＃]cyka");
+	std::regex regexRebootAttempt("[#＃]reboot");
+
+	std::regex regexLoginAttempt("[#＃]login (\\d{11}) (\\S{6,19})");
+	std::regex regexNewGroup("[#＃]gpadd (\\d{5,20})");
+	std::regex regexListAccounts("[#＃]ls");
+	std::regex regexSaveAttempt("[#＃]save");
+
+	std::regex regexLogoutOther("[#＃]logout \\[CQ:at,qq=(\\d{5,20})\\]\\s*");
+	std::regex regexLogoutSelf("[#＃]logout");
+	std::regex regexDeleteGroup("[#＃]gpdel (\\d{5,20})");
+	
+#endif
+
+#ifdef NATURAL
+	std::regex regexHelp("插件帮助");
+	std::regex regexRecall("撤回 (\\d{1,2})");
+	std::regex regexPing("ping");
+	std::regex regexRebootAttempt("重启机器人");
+
+	std::regex regexLoginAttempt("新建签到 (\\d{11}) (\\S{6,19})");
+	std::regex regexListAccounts("用户列表");
+	std::regex regexSaveAttempt("保存数据");
+
+	std::regex regexLogoutOther("注销签到\\[CQ:at,qq=(\\d{6,13})\\]\\s*");
+	std::regex regexLogoutSelf("注销签到");
+	std::regex regexSelfSignIn("s(\\d{4})");
+	std::regex regexOtherSignIn("o(\\d{4})\\[CQ:at,qq=(\\d{6,13})\\]\\s*");
+	std::regex regexMultiSignIn("a(\\d{4})");
 #endif
 
 // namespace cq::app 包含插件本身的生命周期事件和管理
@@ -16,8 +53,8 @@
 
 const int administrator = 1135989508, mainGroup = 628669530;
 
-unsigned int cq::fileio::userDatas::totalGroupCounts = 0;
-std::vector<cq::fileio::userDatas> groupDatas;
+unsigned int stea::fileio::userDatas::totalGroupCounts = 0;
+std::vector<stea::fileio::userDatas> groupDatas;
 
 long long startRuntime = 0;
 
@@ -28,39 +65,12 @@ CQ_MAIN
 	{
         // cq::logging、cq::api、cq::dir 等命名空间下的函数只能在事件回调函数内部调用，而不能直接在 CQ_MAIN 中调用
 		startRuntime= GetTickCount();
-		/*
-		if(cq::python::pythonInit())
-		{
-			cq::logging::debug(u8"PYTHON", u8"Python initiated!");
-		}
-		else
-		{
-			cq::logging::debug(u8"PYTHON", u8"Python initiation failed!");
-		}
-		*/
-		cq::logging::debug(u8"ENABLE", u8"Auto_Sign_In_Plugin is enabled!");
+		//cq::logging::debug(u8"ENABLE", u8"Auto_Sign_In_Plugin is enabled!");
 
-		cq::fileio::loadUserDataStream(groupDatas);
+		stea::fileio::loadUserDataStream(groupDatas);
 
 		try
 		{
-			/*
-			std::string userDataMessage = "";
-			for (unsigned int i = 0; i < cq::fileio::userDatas::readTotalGroupCounts(); i++)
-			{
-				userDataMessage += u8"群号: " + groupDatas[i].readGroupNumber() + "\n";
-				userDataMessage += u8"用户人数: " + std::to_string(groupDatas[i].readTotalUserCounts()) + "\n";
-				for (unsigned int j = 0; j < groupDatas[i].readTotalUserCounts(); j++)
-				{
-					userDataMessage += u8"    用户QQ: " + groupDatas[i].readUserQQs(j) + "\n";
-					userDataMessage += u8"    用户账号: " + groupDatas[i].readUserAccounts(j) + "\n";
-					userDataMessage += u8"    用户密码: " + groupDatas[i].readUserPasswords(j) + "\n";
-					userDataMessage += u8"    用户Token: " + groupDatas[i].readUserXAuthTokens(j) + "\n\n";
-				}
-			}
-			long long endRuntime = GetTickCount();
-			cq::api::send_private_msg(administrator, userDataMessage + u8"执行耗时：" + std::to_string(endRuntime - startRuntime) + "ms");
-			*/
 			long long endRuntime = GetTickCount();
 			cq::api::send_group_msg(mainGroup, u8"丢人插件正在运行\n执行耗时：" + std::to_string(endRuntime - startRuntime) + "ms");
 		}
@@ -75,31 +85,6 @@ CQ_MAIN
 	{
 		startRuntime = GetTickCount();
 		using namespace std;
-		//int position;
-		//正则匹配
-
-		#ifdef SHELL
-			regex regexHelp("#help");
-			regex regexPing("#ping");
-			regex regexRebootAttempt("#reboot");
-
-			regex regexListAccounts("#list");
-			regex regexSaveAttempt("#save");
-
-			regex regexMultiSignIn("#all (\\d{4})");
-		#endif
-
-		#ifdef NATURAL
-			regex regexHelp("插件帮助");
-			regex regexPing("ping");
-			regex regexRebootAttempt("重启机器人");
-
-			regex regexListAccounts("用户列表");
-			regex regexSaveAttempt("保存数据");
-
-			regex regexMultiSignIn("a(\\d{4})");
-		#endif
-
 		smatch result;
 
         //cq::logging::debug(u8"消息", u8"收到私聊消息：" + e.message + u8"，发送者：" + std::to_string(e.user_id));
@@ -145,6 +130,36 @@ CQ_MAIN
 			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
 			cq::message::send(e.target, msg);
 		}
+		if(regex_match(e.raw_message,result,regexListAccounts))
+		{
+			try
+			{
+				string userDataMessage = "";
+				for (unsigned int i = 0; i < stea::fileio::userDatas::readTotalGroupCounts(); i++)
+				{
+						userDataMessage += u8"群号: " + groupDatas[i].readGroupNumber() + "\n";
+						userDataMessage += u8"用户人数: " + to_string(groupDatas[i].readTotalUserCounts()) + "\n";
+						for (unsigned int j = 0; j < groupDatas[i].readTotalUserCounts(); j++)
+						{
+							userDataMessage += u8"    用户QQ: [CQ:at,qq=" + groupDatas[i].readUserQQs(j) + "]\n";
+							if(e.user_id == administrator)
+							{
+								userDataMessage += "    用户账号: " + groupDatas[i].readUserAccounts(j) + "\n";
+								userDataMessage += "    用户密码: " + groupDatas[i].readUserPasswords(j) + "\n";
+							}
+							userDataMessage += u8"        用户Token: " + groupDatas[i].readUserXAuthTokens(j) + "\n";
+						}
+				}
+				long long endRuntime = GetTickCount();
+				cq::message::send(e.target, userDataMessage + u8"执行耗时：" + to_string(endRuntime - startRuntime) + "ms");
+			}
+			catch (const cq::exception::ApiError &err)
+			{
+           		// API 调用失败
+            	cq::logging::debug(u8"API", u8"调用失败，错误码：" + to_string(err.code));
+        	}
+		}
+		
 		/*
         try {
             cq::api::send_private_msg(e.user_id, e.message); // echo 回去
@@ -169,55 +184,242 @@ CQ_MAIN
 		startRuntime = GetTickCount();
 		using namespace std;
 		
-		cq::logging::debug(u8"GROUP_RAW", e.raw_message);
-		cq::logging::debug(u8"GROUP", e.message);
+		//cq::logging::debug(u8"GROUP_RAW", e.raw_message);
+		//cq::logging::debug(u8"GROUP", e.message);
 		//正则匹配
 
-		#ifdef SHELL
-			regex regexHelp("#[h?？]");
-			regex regexRecall("#rc (\\d{1,2})");
-			regex regexPing("#cyka");
-			regex regexRebootAttempt("#reboot");
-
-			regex regexLoginAttempt("#login (\\d{11}) (\\S{6,19})");
-			regex regexListAccounts("#ls");
-			regex regexSaveAttempt("#save");
-
-			regex regexLogoutOther("#logout \\[CQ:at,qq=(\\d{5,20})\\]\\s*");
-			regex regexLogoutSelf("#logout");
-			regex regexSelfSignIn("#s (\\d{4})");
-			regex regexOtherSignIn("#o (\\d{4}) \\[CQ:at,qq=(\\d{5,20})\\]\\s*");
-			regex regexMultiSignIn("#a (\\d{4})");
-		#endif
-
-		#ifdef NATURAL
-			regex regexHelp("插件帮助");
-			regex regexRecall("撤回 (\\d{1,2})");
-			regex regexPing("ping");
-			regex regexRebootAttempt("重启机器人");
-
-			regex regexLoginAttempt("新建签到 (\\d{11}) (\\S{6,19})");
-			regex regexListAccounts("用户列表");
-			regex regexSaveAttempt("保存数据");
-
-			regex regexLogoutOther("注销签到\\[CQ:at,qq=(\\d{6,13})\\]\\s*");
-			regex regexLogoutSelf("注销签到");
-			regex regexSelfSignIn("s(\\d{4})");
-			regex regexOtherSignIn("o(\\d{4})\\[CQ:at,qq=(\\d{6,13})\\]\\s*");
-			regex regexMultiSignIn("a(\\d{4})");
-		#endif
-
 		smatch result;
+		if(regex_match(e.raw_message,result,regexSelfSignIn))
+		{
+			string signInCode = result[1], userQQ = to_string(e.user_id), xAuthToken, statusCode;
+			unsigned int groupIterator, userIterator;
+			bool successful = false;
+
+			cq::Message msg = u8"个人签到："; // string 到 Message 自动转换
+			msg += u8"\n    签到码：" + signInCode; // Message 类可以进行加法运算
+
+			for (groupIterator = 0; groupIterator < stea::fileio::userDatas::readTotalGroupCounts(); groupIterator++)
+			{
+				if(groupDatas[groupIterator].readGroupNumber() == to_string(e.group_id))
+				{
+					msg += u8"\n    所在群号: " + groupDatas[groupIterator].readGroupNumber();
+					for (userIterator = 0; userIterator < groupDatas[groupIterator].readTotalUserCounts(); userIterator++)
+					{
+						if(groupDatas[groupIterator].readUserQQs(userIterator) == userQQ)
+						{
+							msg += u8"\n    用户QQ: [CQ:at,qq=" + groupDatas[groupIterator].readUserQQs(userIterator) + "]";
+							xAuthToken = groupDatas[groupIterator].readUserXAuthTokens(userIterator);
+							successful = true;
+							break;
+						}
+					}
+					if(successful)
+					{
+						break;	
+					}
+				}
+			}
+			if(successful)
+			{
+				try
+				{
+					statusCode = stea::httpRequest::totalValidationCode(signInCode, xAuthToken);
+					msg += u8"\n    返回：" + statusCode; // Message 类可以进行加法运算
+				}
+				catch(string errorString)
+				{
+					msg += u8"\n    错误提示：" + errorString;
+				}
+				catch(const char *errorChar)
+				{
+					try
+					{
+						msg += u8"\n    错误提示：EXPIRED_TOKEN";
+						//cq::logging::debug(u8"GROUP", u8"userAccount: " + groupDatas[groupIterator].readUserAccounts(userIterator));
+						//cq::logging::debug(u8"GROUP", u8"userPassword: " + groupDatas[groupIterator].readUserPasswords(userIterator));
+						xAuthToken = stea::httpRequest::totalXAuthToken(groupDatas[groupIterator].readUserAccounts(userIterator), groupDatas[groupIterator].readUserPasswords(userIterator));
+						groupDatas[groupIterator].setUserXAuthTokens(userIterator, xAuthToken);
+						msg += u8"\n    用户Token已更新：" + xAuthToken;
+						//cq::logging::debug(u8"GROUP", u8"New Token" + xAuthToken);
+						msg += u8"\n    重新签到：";
+						statusCode = stea::httpRequest::totalValidationCode(signInCode, xAuthToken);
+						msg += u8"\n        返回：" + statusCode; // Message 类可以进行加法运算
+
+						stea::fileio::saveUserDataStream(groupDatas);
+					}
+					catch(string errorString)
+					{
+						msg += u8"\n        错误提示：" + errorString;
+					}
+					catch(const char *errorChar)
+					{
+						msg += u8"\n        错误提示：UNKNOWN_ERROR";
+					}
+					catch(unsigned int statusCode)
+					{
+						msg += u8"\n        错误码：" + to_string(statusCode);
+					}
+				}
+				catch(unsigned int statusCode)
+				{
+					msg += u8"\n    错误码：" + to_string(statusCode);
+				}
+			}
+			else
+			{
+				msg += u8"\n    错误提示：NON-EXISTENT_USER";
+			}
+			long long endRuntime = GetTickCount();
+			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
+			
+            cq::message::send(e.target, msg); // 使用 message 命名空间的 send 函数
+		}
+		if(regex_match(e.raw_message,result,regexOtherSignIn))
+		{
+			//smatch::iterator x;
+			string signInCode = result[1], userQQ = result[2], xAuthToken, statusCode;
+			unsigned int groupIterator, userIterator;
+			bool successful = false;
+
+			cq::Message msg = u8"他人签到："; // string 到 Message 自动转换
+			msg += u8"\n    签到码：" + signInCode; // Message 类可以进行加法运算
+
+			for (groupIterator = 0; groupIterator < stea::fileio::userDatas::readTotalGroupCounts(); groupIterator++)
+			{
+				if(groupDatas[groupIterator].readGroupNumber() == to_string(e.group_id))
+				{
+					msg += u8"\n    所在群号: " + groupDatas[groupIterator].readGroupNumber();
+					for (userIterator = 0; userIterator < groupDatas[groupIterator].readTotalUserCounts(); userIterator++)
+					{
+						if(groupDatas[groupIterator].readUserQQs(userIterator) == userQQ)
+						{
+							msg += u8"\n    用户QQ: [CQ:at,qq=" + groupDatas[groupIterator].readUserQQs(userIterator) + "]";
+							xAuthToken = groupDatas[groupIterator].readUserXAuthTokens(userIterator);
+							successful = true;
+							break;
+						}
+					}
+					if(successful)
+					{
+						break;	
+					}
+				}
+			}
+			if(successful)
+			{
+				try
+				{
+					statusCode = stea::httpRequest::totalValidationCode(signInCode, xAuthToken);
+					msg += u8"\n    返回：" + statusCode; // Message 类可以进行加法运算
+				}
+				catch(string errorString)
+				{
+					msg += u8"\n    错误提示：" + errorString;
+				}
+				catch(const char *errorChar)
+				{
+					try
+					{
+						msg += u8"\n    错误提示：EXPIRED_TOKEN";
+						//cq::logging::debug(u8"GROUP", u8"userAccount: " + groupDatas[groupIterator].readUserAccounts(userIterator));
+						//cq::logging::debug(u8"GROUP", u8"userPassword: " + groupDatas[groupIterator].readUserPasswords(userIterator));
+						xAuthToken = stea::httpRequest::totalXAuthToken(groupDatas[groupIterator].readUserAccounts(userIterator), groupDatas[groupIterator].readUserPasswords(userIterator));
+						groupDatas[groupIterator].setUserXAuthTokens(userIterator, xAuthToken);
+						msg += u8"\n    用户Token已更新：" + xAuthToken;
+						//cq::logging::debug(u8"GROUP", u8"New Token" + xAuthToken);
+						msg += u8"\n    重新签到：";
+						statusCode = stea::httpRequest::totalValidationCode(signInCode, xAuthToken);
+						msg += u8"\n        返回：" + statusCode; // Message 类可以进行加法运算
+
+						stea::fileio::saveUserDataStream(groupDatas);
+					}
+					catch(string errorString)
+					{
+						msg += u8"\n        错误提示：" + errorString;
+					}
+					catch(const char *errorChar)
+					{
+						msg += u8"\n        错误提示：UNKNOWN_ERROR";
+					}
+					catch(unsigned int statusCode)
+					{
+						msg += u8"\n        错误码：" + to_string(statusCode);
+					}
+				}
+				catch(unsigned int statusCode)
+				{
+					msg += u8"\n    错误码：" + to_string(statusCode);
+				}
+			}
+			else
+			{
+				msg += u8"\n    错误提示：NON-EXISTENT_USER";
+			}
+			long long endRuntime = GetTickCount();
+			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
+			
+            cq::message::send(e.target, msg); // 使用 message 命名空间的 send 函数
+		}
+		if(regex_match(e.raw_message,result,regexMultiThreadSignIn))
+		{
+			string signInCode = result[1], stateMsg = "";
+			vector<string> userQQ, xAuthTokens;
+			vector<thread> signInThreads;
+			unsigned int userCounts, groupIterator, userIterator;
+			
+			cq::Message msg = u8"多线程签到: ";
+
+			for (groupIterator = 0; groupIterator < stea::fileio::userDatas::readTotalGroupCounts(); groupIterator++)
+			{
+				if(groupDatas[groupIterator].readGroupNumber() == to_string(e.group_id))
+				{
+					userCounts = groupDatas[groupIterator].readTotalUserCounts();
+					for (userIterator = 0; userIterator < userCounts; userIterator++)
+					{
+						try
+						{
+							signInThreads.push_back(thread(multiSignIn, ref(groupDatas), groupIterator, userIterator, signInCode, ref(stateMsg)));
+						}
+						catch (const cq::exception::ApiError &err)
+						{
+							// API 调用失败
+							cq::logging::debug(u8"API", u8"调用失败，错误码：" + to_string(err.code));
+						}
+						//xAuthTokens.push_back(groupDatas[i].readUserXAuthTokens(j));
+						//userQQ.push_back(groupDatas[i].readUserQQs(j));
+					}
+				}
+			}
+			cq::logging::debug(u8"GROUP", "ON_MULTY");
+			for (unsigned int i = 0; i < userCounts; ++i)
+			{
+				try
+				{
+					cq::logging::debug(u8"GROUP", "END_MULTY_" + to_string(i));
+					signInThreads[i].join();
+				}
+				catch (const cq::exception::ApiError &err)
+				{
+					// API 调用失败
+					cq::logging::debug(u8"API", u8"调用失败，错误码：" + to_string(err.code));
+				}
+			}
+			msg += stateMsg;
+			long long endRuntime = GetTickCount();
+			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
+			cq::message::send(e.target, msg);
+		}
 
 		if(regex_match(e.raw_message,result,regexHelp))
 		{
 			cq::Message msg = u8"丢人插件帮助：\n";
 			#ifdef SHELL
 				msg += u8"    大括号{}用来指代需要自己输入的部分，使用时请不要带大括号\n";
+				msg += u8"    Token会在任何签到类型中自动判断是否需要更新\n";
 				msg += u8"#h\n";
 				msg += u8"    显示此帮助菜单\n";
 				msg += u8"#cyka\n";
-				msg += u8"    简单的Ping，返回Blyat！\n";
+				msg += u8"    简单的Cyka，返回Blyat！\n";
 				msg += u8"#login {account} {password}\n";
 				msg += u8"    登录并获取Token\n";
 				msg += u8"#ls\n";
@@ -231,7 +433,7 @@ CQ_MAIN
 				msg += u8"#o {code} {@someone}\n";
 				msg += u8"    为他人签到\n";
 				msg += u8"#a {code}\n";
-				msg += u8"    为本群所有人签到（尚未实装）\n";
+				msg += u8"    为本群所有人签到\n";
 			#endif
 
 			#ifdef NATURAL
@@ -284,7 +486,7 @@ CQ_MAIN
 		}
 		if((regex_match(e.raw_message,result,regexRebootAttempt))&&(e.user_id == administrator))
 		{
-			cq::fileio::saveUserDataStream(groupDatas);
+			stea::fileio::saveUserDataStream(groupDatas);
 			cq::Message msg = u8"正在执行REBOOT指令，10秒内重启……";
 			long long endRuntime = GetTickCount();
 			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
@@ -300,7 +502,7 @@ CQ_MAIN
 			msg += u8"    用户QQ：[CQ:at,qq=" + userQQ + "]\n";
 			try
 			{
-				for (unsigned int i = 0; i < cq::fileio::userDatas::readTotalGroupCounts(); i++)
+				for (unsigned int i = 0; i < stea::fileio::userDatas::readTotalGroupCounts(); i++)
 				{
 					if(groupDatas[i].readGroupNumber() == groupNumber)
 					{
@@ -308,7 +510,6 @@ CQ_MAIN
 						{
 							if(groupDatas[i].readUserQQs(j) == userQQ)
 							{
-								groupDatas[i].deleteUserAccount(j);
 								exist = true;
 								break;
 							}
@@ -321,7 +522,7 @@ CQ_MAIN
 						}
 						else
 						{
-							userXAuthToken = cq::httpRequest::totalXAuthToken(userAccount, userPassword);
+							userXAuthToken = stea::httpRequest::totalXAuthToken(userAccount, userPassword);
 							msg += u8"    X-Auth-Token：" + userXAuthToken + "\n";
 
 							groupDatas[i].addBackUserQQs(userQQ);
@@ -330,6 +531,9 @@ CQ_MAIN
 							groupDatas[i].addBackUserXAuthTokens(userXAuthToken);
 
 							cq::api::delete_msg(e.message_id);
+
+							stea::fileio::saveUserDataStream(groupDatas);
+
 							break;
 						}
 					}
@@ -358,7 +562,7 @@ CQ_MAIN
 			try
 			{
 				string userDataMessage = "";
-				for (unsigned int i = 0; i < cq::fileio::userDatas::readTotalGroupCounts(); i++)
+				for (unsigned int i = 0; i < stea::fileio::userDatas::readTotalGroupCounts(); i++)
 				{
 					if(groupDatas[i].readGroupNumber() == to_string(e.group_id))
 					{
@@ -366,10 +570,10 @@ CQ_MAIN
 						userDataMessage += u8"用户人数: " + to_string(groupDatas[i].readTotalUserCounts()) + "\n";
 						for (unsigned int j = 0; j < groupDatas[i].readTotalUserCounts(); j++)
 						{
-							userDataMessage += u8"    用户QQ: " + groupDatas[i].readUserQQs(j) + "\n";
+							userDataMessage += u8"    用户QQ: [CQ:at,qq=" + groupDatas[i].readUserQQs(j) + "]\n";
 							//userDataMessage += "    用户账号: " + groupDatas[i].readUserAccounts(j) + "\n";
 							//userDataMessage += "    用户密码: " + groupDatas[i].readUserPasswords(j) + "\n";
-							userDataMessage += u8"    用户Token: " + groupDatas[i].readUserXAuthTokens(j) + "\n\n";
+							userDataMessage += u8"        用户Token: " + groupDatas[i].readUserXAuthTokens(j) + "\n";
 						}
 					}
 				}
@@ -382,9 +586,45 @@ CQ_MAIN
             	cq::logging::debug(u8"API", u8"调用失败，错误码：" + to_string(err.code));
         	}
 		}
+		if(regex_match(e.raw_message,result,regexNewGroup)&&(e.user_id == administrator))
+		{
+			try
+			{
+				cq::Message msg = u8"新建群聊数据:\n";
+				string groupNumber = result[1];
+				bool existed = false;
+				for (unsigned int i = 0; i < stea::fileio::userDatas::readTotalGroupCounts(); i++)
+				{
+					if(groupDatas[i].readGroupNumber() == groupNumber)
+					{
+						existed = true;
+						break;
+					}
+				}
+				if(existed)
+				{
+					msg += u8"添加失败，群聊已存在！\n";
+				}
+				else
+				{
+					stea::fileio::userDatas newGroup;
+					newGroup.setGroupNumber(groupNumber);
+					groupDatas.push_back(newGroup);
+					stea::fileio::userDatas::addTotalGroupCounts();
+					msg += u8"添加成功！敏感操作，请手动保存数据库！\n";
+				}
+				long long endRuntime = GetTickCount();
+				cq::message::send(e.target, msg + u8"执行耗时：" + to_string(endRuntime - startRuntime) + "ms");
+			}
+			catch (const cq::exception::ApiError &err)
+			{
+           		// API 调用失败
+            	cq::logging::debug(u8"API", u8"调用失败，错误码：" + to_string(err.code));
+        	}
+		}
 		if(regex_match(e.raw_message,result,regexSaveAttempt))
 		{
-			cq::fileio::saveUserDataStream(groupDatas);
+			stea::fileio::saveUserDataStream(groupDatas);
 			cq::Message msg = u8"保存配置成功！";
 			long long endRuntime = GetTickCount();
 			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
@@ -399,7 +639,7 @@ CQ_MAIN
 			msg += u8"    用户QQ：[CQ:at,qq=" + logoutQQ + "]\n";
 			try
 			{
-				for (unsigned int i = 0; i < cq::fileio::userDatas::readTotalGroupCounts(); i++)
+				for (unsigned int i = 0; i < stea::fileio::userDatas::readTotalGroupCounts(); i++)
 				{
 					if(groupDatas[i].readGroupNumber() == to_string(e.group_id))
 					{
@@ -423,6 +663,9 @@ CQ_MAIN
 				{
 					msg += u8"    注销失败！\n";
 				}
+
+				stea::fileio::saveUserDataStream(groupDatas);
+
 				long long endRuntime = GetTickCount();
 				msg += u8"执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
 				cq::message::send(e.target, msg);
@@ -441,7 +684,7 @@ CQ_MAIN
 			msg += u8"    用户QQ：[CQ:at,qq=" + logoutQQ + "]\n";
 			try
 			{
-				for (unsigned int i = 0; i < cq::fileio::userDatas::readTotalGroupCounts(); i++)
+				for (unsigned int i = 0; i < stea::fileio::userDatas::readTotalGroupCounts(); i++)
 				{
 					if(groupDatas[i].readGroupNumber() == to_string(e.group_id))
 					{
@@ -465,6 +708,9 @@ CQ_MAIN
 				{
 					msg += u8"    注销失败！\n";
 				}
+
+				stea::fileio::saveUserDataStream(groupDatas);
+
 				long long endRuntime = GetTickCount();
 				msg += u8"执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
 				cq::message::send(e.target, msg);
@@ -475,174 +721,37 @@ CQ_MAIN
             	cq::logging::debug(u8"API", u8"调用失败，错误码：" + to_string(err.code));
         	}
 		}
-		if(regex_match(e.raw_message,result,regexSelfSignIn))
+		if(regex_match(e.raw_message,result,regexDeleteGroup)&&(e.user_id == administrator))
 		{
-			//smatch::iterator x;
-			string signInCode = result[1], userQQ = to_string(e.user_id), xAuthToken, statusCode;
-			bool successful = false;
-
-			cq::Message msg = u8"个人签到："; // string 到 Message 自动转换
-			msg += u8"\n    签到码：" + signInCode; // Message 类可以进行加法运算
-
-			for (unsigned int i = 0; i < cq::fileio::userDatas::readTotalGroupCounts(); i++)
-			{
-				if(successful)
-				{
-					break;	
-				}
-				if(groupDatas[i].readGroupNumber() == to_string(e.group_id))
-				{
-					msg += u8"\n    所在群号: " + groupDatas[i].readGroupNumber();
-					for (unsigned int j = 0; j < groupDatas[i].readTotalUserCounts(); j++)
-					{
-						if(groupDatas[i].readUserQQs(j) == userQQ)
-						{
-							msg += u8"\n    用户QQ: [CQ:at,qq=" + groupDatas[i].readUserQQs(j) + "]";
-							xAuthToken = groupDatas[i].readUserXAuthTokens(j);
-							successful = true;
-							break;
-						}
-					}
-				}
-			}
-			if(successful)
-			{
-				try
-				{
-					statusCode = cq::httpRequest::totalValidationCode(signInCode, xAuthToken);
-					msg += u8"\n    返回：" + statusCode; // Message 类可以进行加法运算
-				}
-				catch(string errorString)
-				{
-					msg += u8"\n    错误提示：" + errorString;
-				}
-				catch(unsigned int statusCode)
-				{
-					msg += u8"\n    错误码：" + to_string(statusCode);
-				}
-			}
-			else
-			{
-				msg += u8"\n    错误提示：NON-EXISTENT_USER";
-			}
-			long long endRuntime = GetTickCount();
-			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
-			
-            cq::message::send(e.target, msg); // 使用 message 命名空间的 send 函数
-		}
-		if(regex_match(e.raw_message,result,regexOtherSignIn))
-		{
-			//smatch::iterator x;
-			string signInCode = result[1], userQQ = result[2], xAuthToken, statusCode;
-			bool successful = false;
-
-			cq::Message msg = u8"他人签到："; // string 到 Message 自动转换
-			msg += u8"\n    签到码：" + signInCode; // Message 类可以进行加法运算
-
-			for (unsigned int i = 0; i < cq::fileio::userDatas::readTotalGroupCounts(); i++)
-			{
-				if(successful)
-				{
-					break;	
-				}
-				if(groupDatas[i].readGroupNumber() == to_string(e.group_id))
-				{
-					msg += u8"\n    所在群号: " + groupDatas[i].readGroupNumber();
-					for (unsigned int j = 0; j < groupDatas[i].readTotalUserCounts(); j++)
-					{
-						if(groupDatas[i].readUserQQs(j) == userQQ)
-						{
-							msg += u8"\n    用户QQ: [CQ:at,qq=" + groupDatas[i].readUserQQs(j) + "]";
-							xAuthToken = groupDatas[i].readUserXAuthTokens(j);
-							successful = true;
-							break;
-						}
-					}
-				}
-			}
-			if(successful)
-			{
-				try
-				{
-					statusCode = cq::httpRequest::totalValidationCode(signInCode, xAuthToken);
-					msg += u8"\n    返回：" + statusCode; // Message 类可以进行加法运算
-				}
-				catch(string errorString)
-				{
-					msg += u8"\n    错误提示：" + errorString;
-				}
-				catch(unsigned int statusCode)
-				{
-					msg += u8"\n    错误码：" + to_string(statusCode);
-				}
-			}
-			else
-			{
-				msg += u8"\n    错误提示：NON-EXISTENT_USER";
-			}
-			long long endRuntime = GetTickCount();
-			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
-			
-            cq::message::send(e.target, msg); // 使用 message 命名空间的 send 函数
-		}
-		if(regex_match(e.raw_message,result,regexMultiSignIn))
-		{
-			//multiSignIn(std::vector<cq::fileio::userDatas> userDatasVector, unsigned int groupIterator, unsigned int userIterator, std::string signInCode, std::vector<std::string>& returnState);
-			string signInCode = result[1];
-			vector<string> userQQ, xAuthTokens;
-			vector<thread> signInThreads; /// 默认构造线程
-
-			unsigned int userCounts;
-			
-			cq::Message msg = u8"多线程签到\n";
-
-			for (unsigned int i = 0; i < cq::fileio::userDatas::readTotalGroupCounts(); i++)
-			{
-				if(groupDatas[i].readGroupNumber() == to_string(e.group_id))
-				{
-					userCounts = groupDatas[i].readTotalUserCounts();
-					for (unsigned int j = 0; j < groupDatas[i].readTotalUserCounts(); j++)
-					{
-						xAuthTokens.push_back(groupDatas[i].readUserXAuthTokens(j));
-						userQQ.push_back(groupDatas[i].readUserQQs(j));
-					}
-				}
-			}
-
 			try
 			{
-				for (unsigned int i = 0; i < userCounts; ++i) {
-					cq::logging::debug(u8"Multy", u8"QQ：" + userQQ[i] + u8"Token: " + xAuthTokens[i]);
-					signInThreads[i] = thread(cq::httpRequest::multiSignIn, userQQ[i], signInCode, xAuthTokens[i]);
+				cq::Message msg = u8"删除群聊数据:\n";
+				string groupNumber = result[1];
+				bool existed = false;
+				for (unsigned int i = 0; i < stea::fileio::userDatas::readTotalGroupCounts(); i++)
+				{
+					if(groupDatas[i].readGroupNumber() == groupNumber)
+					{
+						groupDatas.erase(groupDatas.begin()+i);
+						stea::fileio::userDatas::minusTotalGroupCounts();
+						msg += u8"删除成功！敏感操作，请手动保存数据库！\n";
+						existed = true;
+						break;
+					}
 				}
-				for (unsigned int i = 0; i < userCounts; ++i) {
-					signInThreads[i].detach();
-					cq::logging::debug(u8"Multy", u8"Thread：" + to_string(i));
+				if(!existed)
+				{
+					msg += u8"删除失败，群聊不存在！\n";
 				}
+				long long endRuntime = GetTickCount();
+				cq::message::send(e.target, msg + u8"执行耗时：" + to_string(endRuntime - startRuntime) + "ms");
 			}
 			catch (const cq::exception::ApiError &err)
 			{
            		// API 调用失败
             	cq::logging::debug(u8"API", u8"调用失败，错误码：" + to_string(err.code));
         	}
-			
-			/*
-			for (unsigned int i = 0; i < cq::fileio::userDatas::readTotalGroupCounts(); i++)
-			{
-				if(groupDatas[i].readGroupNumber() == to_string(e.group_id))
-				{
-					for (unsigned int j = 0; j < groupDatas[i].readTotalUserCounts(); j++)
-					{
-						msg += u8"    用户：[CQ:at,qq=" + groupDatas[i].readUserQQs(j) + "]，状态：" + returnState[j];
-					}
-				}
-			}
-			*/
-			long long endRuntime = GetTickCount();
-			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
-			cq::message::send(e.target, msg);
 		}
-
         //const auto memlist = cq::api::get_group_member_list(e.group_id); // 获取数据接口
         //cq::Message msg = u8"检测到精确消息，RawMessage="; // string 到 Message 自动转换
         //msg += std::to_string(memlist.size()) + u8" 个成员"; // Message 类可以进行加法运算
