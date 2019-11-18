@@ -1,4 +1,6 @@
 #include "httplib.h"
+#include <ctime>
+
 std::mutex multiMutex;
 namespace stea::httpRequest
 {
@@ -525,6 +527,7 @@ namespace stea::fileio
 		userDataStream.close();
 	}
 }
+
 void multiSignIn(std::vector<stea::fileio::userDatas>& groupDatas, unsigned int groupIterator, unsigned int userIterator, std::string signInCode, std::string& stateMsg);
 
 void multiSignIn(std::vector<stea::fileio::userDatas>& groupDatas, unsigned int groupIterator, unsigned int userIterator, std::string signInCode, std::string& stateMsg)

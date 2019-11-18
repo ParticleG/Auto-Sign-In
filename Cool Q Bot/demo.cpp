@@ -1,5 +1,6 @@
 #include "cqsdk/cqsdk.h"
 #include "autoSignInPlugin.h"
+#include <ctime>
 
 #define SHELL
 
@@ -13,11 +14,11 @@
 	std::regex regexMultiThreadSignIn("[#＃]a (\\d{4})");
 
 	std::regex regexHelp("[#＃][h?]");
-	std::regex regexRecall("[#＃]rc (\\d{1,2})");
 	std::regex regexPing("[#＃]cyka");
 	std::regex regexRebootAttempt("[#＃]reboot");
 
 	std::regex regexLoginAttempt("[#＃]login (\\d{11}) (\\S{6,19})");
+	std::regex regexLoginOther("[#＃]login (\\d{11}) (\\S{6,19}) \\[CQ:at,qq=(\\d{5,20})\\]\\s*");
 	std::regex regexNewGroup("[#＃]gpadd (\\d{5,20})");
 	std::regex regexListAccounts("[#＃]ls");
 	std::regex regexSaveAttempt("[#＃]save");
@@ -51,7 +52,7 @@
 // namespace cq::logging 用于日志
 // namespace cq::message 提供封装了的 Message 等类
 
-const int administrator = 1135989508, mainGroup = 628669530;
+const int administrator = 1135989508, mainGroup = 628669530, myself = 1705695324;
 
 unsigned int stea::fileio::userDatas::totalGroupCounts = 0;
 std::vector<stea::fileio::userDatas> groupDatas;
@@ -72,7 +73,7 @@ CQ_MAIN
 		try
 		{
 			long long endRuntime = GetTickCount();
-			cq::api::send_group_msg(mainGroup, u8"丢人插件正在运行\n执行耗时：" + std::to_string(endRuntime - startRuntime) + "ms");
+			cq::api::send_group_msg(mainGroup, u8"签到插件加载完毕\n执行耗时：" + std::to_string(endRuntime - startRuntime) + "ms");
 		}
 		catch (const cq::exception::ApiError &err)
 		{
@@ -91,19 +92,12 @@ CQ_MAIN
 
 		if(regex_match(e.raw_message,result,regexHelp))
 		{
-			cq::Message msg = u8"丢人插件帮助：\n";
+			cq::Message msg = u8"签到插件帮助：\n";
 			#ifdef SHELL
-				msg += u8"    大括号{}用来指代需要自己输入的部分，使用时请不要带大括号\n";
 				msg += u8"#help\n";
 				msg += u8"    显示此帮助菜单\n";
-				msg += u8"#ping\n";
-				msg += u8"    简单的Ping，返回Pong！\n";
 				msg += u8"#list\n";
 				msg += u8"    显示所有用户列表\n";
-				msg += u8"#save\n";
-				msg += u8"    即时保存用户列表\n";
-				msg += u8"#all {code}\n";
-				msg += u8"    为所有人签到（尚未实装）\n";
 			#endif
 
 			#ifdef NATURAL
@@ -183,10 +177,6 @@ CQ_MAIN
 	{
 		startRuntime = GetTickCount();
 		using namespace std;
-		
-		//cq::logging::debug(u8"GROUP_RAW", e.raw_message);
-		//cq::logging::debug(u8"GROUP", e.message);
-		//正则匹配
 
 		smatch result;
 		if(regex_match(e.raw_message,result,regexSelfSignIn))
@@ -412,7 +402,7 @@ CQ_MAIN
 
 		if(regex_match(e.raw_message,result,regexHelp))
 		{
-			cq::Message msg = u8"丢人插件帮助：\n";
+			cq::Message msg = u8"签到插件帮助：\n";
 			#ifdef SHELL
 				msg += u8"    大括号{}用来指代需要自己输入的部分，使用时请不要带大括号\n";
 				msg += u8"    Token会在任何签到类型中自动判断是否需要更新\n";
@@ -422,6 +412,8 @@ CQ_MAIN
 				msg += u8"    简单的Cyka，返回Blyat！\n";
 				msg += u8"#login {account} {password}\n";
 				msg += u8"    登录并获取Token\n";
+				msg += u8"#login {account} {password} {@someone}\n";
+				msg += u8"    为他人登录并获取Token\n";
 				msg += u8"#ls\n";
 				msg += u8"    显示本群用户列表\n";
 				msg += u8"#save\n";
@@ -460,25 +452,6 @@ CQ_MAIN
 			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
 			cq::message::send(e.target, msg);
 		}
-		if(regex_match(e.raw_message,result,regexRecall))
-		{
-			string message_id = result[1];
-			cq::Message msg = "";
-			try
-			{
-				cq::api::delete_msg(e.message_id - atoi(message_id.c_str()));
-				msg += u8"撤回成功！";
-			}
-			catch (const cq::exception::ApiError &err)
-			{
-				// API 调用失败
-				cq::logging::debug(u8"API", u8"调用失败，错误码：" + std::to_string(err.code));
-				msg += u8"撤回失败！";
-			}
-			long long endRuntime = GetTickCount();
-			msg += u8"\n执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
-			cq::message::send(e.target, msg);
-		}
 		if(regex_match(e.raw_message,result,regexPing))
 		{
 			cq::Message msg = u8"Blyat!";
@@ -493,7 +466,6 @@ CQ_MAIN
 			cq::message::send(e.target, msg);
 			system("taskkill /f /t /im CQP.exe");
 		}
-
 		if(regex_match(e.raw_message,result,regexLoginAttempt))
 		{
 			string groupNumber = to_string(e.group_id), userQQ = to_string(e.user_id), userAccount = result[1], userPassword = result[2], userXAuthToken = "";
@@ -517,7 +489,7 @@ CQ_MAIN
 						if(exist)
 						{
 							string errorString = "USER_EXISTED";
-							cq::api::delete_msg(e.message_id);
+							//cq::api::delete_msg(e.message_id);
 							throw errorString;
 						}
 						else
@@ -530,7 +502,70 @@ CQ_MAIN
 							groupDatas[i].addBackUserPasswords(userPassword);
 							groupDatas[i].addBackUserXAuthTokens(userXAuthToken);
 
-							cq::api::delete_msg(e.message_id);
+							//cq::api::delete_msg(e.message_id);
+
+							stea::fileio::saveUserDataStream(groupDatas);
+
+							break;
+						}
+					}
+				}
+			}
+			catch(string errorString)
+			{
+				msg += u8"    错误内容：" + errorString + "\n";
+			}
+			catch(unsigned int statusCode)
+			{
+				msg += u8"    错误码：" + to_string(statusCode) + "\n";
+			}
+			catch (const cq::exception::ApiError &err)
+			{
+				// API 调用失败
+				cq::logging::debug(u8"API", u8"调用失败，错误码：" + std::to_string(err.code));
+			}
+			long long endRuntime = GetTickCount();
+			msg += u8"执行耗时：" + to_string(endRuntime - startRuntime) + "ms";
+			
+			cq::message::send(e.target, msg);
+		}
+		if(regex_match(e.raw_message,result,regexLoginOther))
+		{
+			string groupNumber = to_string(e.group_id), userQQ = result[3], userAccount = result[1], userPassword = result[2], userXAuthToken = "";
+			cq::Message msg = u8"他人登录:\n";
+			bool exist = false;
+			msg += u8"    用户QQ：[CQ:at,qq=" + userQQ + "]\n";
+			try
+			{
+				for (unsigned int i = 0; i < stea::fileio::userDatas::readTotalGroupCounts(); i++)
+				{
+					if(groupDatas[i].readGroupNumber() == groupNumber)
+					{
+						for (unsigned int j = 0; j < groupDatas[i].readTotalUserCounts(); j++)
+						{
+							if(groupDatas[i].readUserQQs(j) == userQQ)
+							{
+								exist = true;
+								break;
+							}
+						}
+						if(exist)
+						{
+							string errorString = "USER_EXISTED";
+							//cq::api::delete_msg(e.message_id);
+							throw errorString;
+						}
+						else
+						{
+							userXAuthToken = stea::httpRequest::totalXAuthToken(userAccount, userPassword);
+							msg += u8"    X-Auth-Token：" + userXAuthToken + "\n";
+
+							groupDatas[i].addBackUserQQs(userQQ);
+							groupDatas[i].addBackUserAccounts(userAccount);
+							groupDatas[i].addBackUserPasswords(userPassword);
+							groupDatas[i].addBackUserXAuthTokens(userXAuthToken);
+
+							//cq::api::delete_msg(e.message_id);
 
 							stea::fileio::saveUserDataStream(groupDatas);
 
